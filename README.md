@@ -1,63 +1,194 @@
 # Curio
 
-Capture. Organize. Discover. — a local-first research library (V0 prototype).
+### Capture. Organize. Discover.
 
-## Local development
+Curio is a local-first research library for saving, organizing, and rediscovering useful resources.
 
-```bash
-npm install
-npm run dev
-```
+Instead of letting useful links disappear across browser bookmarks, tabs, notes, and different platforms, Curio gives them one place where they can be organized with boards, tags, search, and quick actions.
 
-## Production build
+Curio is designed around a simple idea:
 
-```bash
-npm run build
-npm run preview   # sanity-check the build locally on http://localhost:4173
-```
+> **Your research should stay yours.**
 
-Output goes to `dist/`.
+---
 
-## Deployment
+## ✨ Current Features
 
-This is a client-side-routed single-page app (`/` = landing, `/app` = the
-Curio application, using the browser History API — no router library). Any
-static host works, but **the host must be configured to serve `index.html`
-for unknown paths** (a "SPA fallback" / rewrite rule), or a direct visit or
-refresh of `/app` will 404.
+### 📥 Capture Resources
 
-### Vercel (recommended)
+Add resources to your personal research library.
 
-1. Push this repo to GitHub/GitLab/Bitbucket.
-2. Import it in Vercel. Framework preset: **Vite**. Build command:
-   `npm run build`. Output directory: `dist`.
-3. `vercel.json` (already included) rewrites all paths to `/index.html`, so
-   `/app` works on direct load and refresh out of the box.
+Curio currently supports different resource types, including:
 
-### Netlify
+- Web pages
+- GitHub repositories
+- YouTube videos
+- Notes
 
-1. Push the repo, then "Import an existing project" in Netlify.
-2. Build command `npm run build`, publish directory `dist`
-   (already set in `netlify.toml`).
-3. `public/_redirects` is copied into `dist/` on build and handles the SPA
-   fallback.
+Each resource can contain useful metadata such as:
 
-### Cloudflare Pages
+- Title
+- URL
+- Description
+- Source type
+- Board
+- Tags
+- Favorite status
+- Timestamp
 
-1. Build command `npm run build`, output directory `dist`.
-2. Cloudflare Pages reads the same `_redirects` syntax as Netlify, so the
-   existing `public/_redirects` file covers it — no extra config needed.
+---
 
-### Plain static hosting (S3, nginx, etc.)
+### 🗂️ Organize with Boards
 
-You must add your own rewrite so every path serves `dist/index.html` with a
-200 status (not a redirect to `/`, and not a 404). For nginx:
+Create boards to organize resources around different:
 
-```
-location / {
-  try_files $uri $uri/ /index.html;
-}
-```
+- Projects
+- Topics
+- Areas of research
+- Interests
 
-GitHub Pages does **not** support this without an extra 404.html workaround
-and is not recommended for this project as-is.
+Resources can be assigned to boards and moved between them.
+
+---
+
+### 🏷️ Tags
+
+Add custom tags to resources to provide another layer of organization.
+
+Tags can be used alongside boards to make larger research libraries easier to navigate.
+
+---
+
+### 🔎 Fast Search
+
+Search through your saved resources to quickly find something you've previously captured.
+
+Curio also includes a keyboard-first command palette that can be opened with:
+
+`⌘K` on macOS  
+`Ctrl+K` on Windows/Linux
+
+---
+
+### ⭐ Favorites
+
+Mark important resources as favorites so they can be accessed quickly.
+
+---
+
+### 🗄️ Archive
+
+Move resources out of your active library without permanently deleting them.
+
+Archived resources can be viewed separately from the main library.
+
+---
+
+### 🎯 Filters
+
+Filter your resource library using available resource metadata such as:
+
+- Boards
+- Tags
+- Resource type
+- Other available filters
+
+---
+
+### ⌨️ Keyboard-First Workflow
+
+Curio is designed to reduce unnecessary mouse interaction.
+
+The command palette and keyboard shortcuts provide quick access to common actions and navigation.
+
+---
+
+### 🌗 Dark & Light Themes
+
+Curio supports both:
+
+- Dark mode
+- Light mode
+
+The interface adapts its surfaces, borders, text, inputs, and interactive states to remain readable in both themes.
+
+---
+
+### 💾 Local-First Storage
+
+Curio is designed as a local-first application.
+
+Research data is stored locally in the browser using:
+
+- IndexedDB
+- LocalStorage
+
+There is currently no backend or user account required for the core application.
+
+---
+
+### 🔐 No Account Required
+
+Curio currently does not require users to create an account to use the application.
+
+Your research library belongs to the browser/device where it is stored.
+
+---
+
+### 🌐 Browser Capture Concept
+
+Curio is designed around quickly bringing useful resources from the web into your research library.
+
+The landing page demonstrates this workflow through the Capture → Organize → Discover experience.
+
+> **Note:** Browser-extension capture is part of the product direction, while the current V0 application focuses on the core research-library experience.
+
+---
+
+## 🧠 Core Workflow
+
+Curio is built around three simple actions:
+
+### 01 — Capture
+
+Save something worth keeping.
+
+### 02 — Organize
+
+Give it context with boards and tags.
+
+### 03 — Discover
+
+Find it again when you need it.
+
+**Capture → Organize → Discover**
+
+---
+
+## 🛠️ Tech Stack
+
+- React
+- Vite
+- JavaScript
+- CSS
+- IndexedDB
+- LocalStorage
+- Browser History API
+
+---
+
+## 📁 Project Structure
+
+```text
+curio/
+├── public/
+├── src/
+│   ├── App.jsx
+│   └── main.jsx
+├── index.html
+├── package.json
+├── package-lock.json
+├── vite.config.js
+├── vercel.json
+├── netlify.toml
+└── README.md
