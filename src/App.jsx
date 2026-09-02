@@ -27,43 +27,43 @@ const BOARD_ACCENTS = {
   dsa: "#F472B6",
 };
 
-const now = new Date("2026-08-30T18:00:00");
-const hrs = (n) => new Date(now.getTime() - n * 3600 * 1000).toISOString();
-const days = (n) => new Date(now.getTime() - n * 24 * 3600 * 1000).toISOString();
-
 let _id = 0;
 const nid = () => `r${++_id}`;
 
-const RESOURCES_SEED = [
-  { title: "React Performance Optimization", domain: "react.dev", url: "https://react.dev/learn/render-and-commit", type: "web", board: "webdev", tags: ["react", "performance", "frontend"], description: "Understanding rendering, memoization and performance optimization patterns.", date: hrs(2), favorite: true, archived: false, notes: "Re-read the section on useMemo pitfalls before the sprint review." },
-  { title: "React Compiler Documentation", domain: "react.dev", url: "https://react.dev/learn/react-compiler", type: "web", board: "webdev", tags: ["react", "performance"], description: "How the React Compiler automatically memoizes components and hooks.", date: hrs(5), favorite: false, archived: false, notes: "" },
-  { title: "facebook/react", domain: "github.com", url: "https://github.com/facebook/react", type: "github", board: "webdev", tags: ["react", "javascript"], description: "The library for web and native user interfaces.", date: hrs(9), favorite: false, archived: false, notes: "" },
-  { title: "Next.js App Router Docs", domain: "nextjs.org", url: "https://nextjs.org/docs/app", type: "web", board: "webdev", tags: ["react", "nextjs"], description: "Data fetching, caching, and rendering strategies in the App Router.", date: days(1), favorite: true, archived: false, notes: "" },
-  { title: "vercel/next.js", domain: "github.com", url: "https://github.com/vercel/next.js", type: "github", board: "webdev", tags: ["nextjs", "javascript"], description: "The React framework for production.", date: days(2), favorite: false, archived: false, notes: "" },
-  { title: "MDN: CSS Grid Layout", domain: "developer.mozilla.org", url: "https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_grid_layout", type: "web", board: "webdev", tags: ["css", "frontend"], description: "A complete reference for building two-dimensional layouts with grid.", date: days(4), favorite: false, archived: false, notes: "" },
-  { title: "shadcn/ui — a component reference I keep coming back to for form primitives and accessible dialogs", domain: "github.com", url: "https://github.com/shadcn-ui/ui", type: "github", board: "webdev", tags: ["react", "frontend"], description: "", date: days(6), favorite: false, archived: true, notes: "" },
+// Real users start with an empty library — no sample resources are ever
+// written into application storage. Demo resources for the landing-page
+// workflow animation live separately in DEMO_WORKFLOWS below and are never
+// read from or written to this store.
+const RESOURCES_STORAGE_KEY = "curio.resources.v1";
 
-  { title: "Attention Is All You Need — walkthrough", domain: "youtube.com", url: "https://youtube.com/watch?v=example1", type: "youtube", board: "ai", tags: ["ai", "llm"], description: "A line-by-line explanation of the original transformer paper.", date: hrs(14), favorite: true, archived: false, notes: "Watch the second half again — attention masking part was fast." },
-  { title: "TanStack Query Docs", domain: "tanstack.com", url: "https://tanstack.com/query/latest", type: "web", board: "ai", tags: ["react", "api"], description: "Powerful asynchronous state management for data fetching and caching.", date: hrs(20), favorite: false, archived: false, notes: "" },
-  { title: "TanStack/query", domain: "github.com", url: "https://github.com/TanStack/query", type: "github", board: "ai", tags: ["react", "javascript"], description: "Powerful asynchronous state management, server-state utilities.", date: days(1), favorite: false, archived: false, notes: "" },
-  { title: "How LLMs Actually Work", domain: "youtube.com", url: "https://youtube.com/watch?v=example2", type: "youtube", board: "ai", tags: ["ai", "llm"], description: "A visual, intuition-first breakdown of transformer internals.", date: days(3), favorite: false, archived: false, notes: "" },
-  { title: "RAG notes — retrieval strategies", domain: "note", url: "", type: "note", board: "ai", tags: ["ai", "llm", "retrieval", "embeddings", "search"], description: "Personal notes comparing dense vs hybrid retrieval for small corpora.", date: days(5), favorite: false, archived: false, notes: "Chunk size 512 with 15% overlap worked best in the last test." },
+function loadStoredResources() {
+  try {
+    if (typeof localStorage === "undefined") return [];
+    const raw = localStorage.getItem(RESOURCES_STORAGE_KEY);
+    if (raw === null) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    // Keep the id counter ahead of anything restored from storage so newly
+    // created resources never collide with a previously saved id.
+    parsed.forEach((r) => {
+      const n = parseInt(String(r.id).replace(/^r/, ""), 10);
+      if (!Number.isNaN(n) && n > _id) _id = n;
+    });
+    return parsed;
+  } catch {
+    return [];
+  }
+}
 
-  { title: "Firebase Documentation", domain: "firebase.google.com", url: "https://firebase.google.com/docs", type: "web", board: "cloud", tags: ["firebase", "cloud"], description: "Guides and reference for Firestore, Auth, Hosting, and Functions.", date: hrs(30), favorite: false, archived: false, notes: "" },
-  { title: "AWS Lambda Best Practices", domain: "docs.aws.amazon.com", url: "https://docs.aws.amazon.com/lambda/latest/dg/best-practices.html", type: "web", board: "cloud", tags: ["cloud", "performance"], description: "Cold starts, memory tuning, and concurrency controls for Lambda.", date: days(2), favorite: true, archived: false, notes: "" },
-  { title: "Docker Compose networking deep dive", domain: "youtube.com", url: "https://youtube.com/watch?v=example3", type: "youtube", board: "cloud", tags: ["cloud", "docker"], description: "Bridge networks, service discovery, and container-to-container DNS.", date: days(3), favorite: false, archived: false, notes: "" },
-  { title: "kubernetes/kubernetes", domain: "github.com", url: "https://github.com/kubernetes/kubernetes", type: "github", board: "cloud", tags: ["cloud", "kubernetes"], description: "Production-grade container orchestration.", date: days(8), favorite: false, archived: true, notes: "" },
-
-  { title: "Designing Data-Intensive Applications — ch.5 notes", domain: "note", url: "", type: "note", board: "sysdesign", tags: ["system-design", "database"], description: "Personal notes on replication strategies: leader-follower vs leaderless.", date: hrs(40), favorite: true, archived: false, notes: "Quorum reads/writes: R + W > N for strong consistency." },
-  { title: "System Design: Rate Limiter", domain: "youtube.com", url: "https://youtube.com/watch?v=example4", type: "youtube", board: "sysdesign", tags: ["system-design"], description: "Token bucket vs sliding window, and how to shard limiter state.", date: days(4), favorite: false, archived: false, notes: "" },
-  { title: "How Discord Stores Trillions of Messages", domain: "discord.com", url: "https://discord.com/blog/how-discord-stores-trillions-of-messages", type: "web", board: "sysdesign", tags: ["system-design", "database"], description: "A case study on migrating from Cassandra to ScyllaDB at scale.", date: days(7), favorite: false, archived: false, notes: "" },
-
-  { title: "Sliding window", domain: "note", url: "", type: "note", board: "dsa", tags: ["algorithms"], description: "When to use fixed vs variable-size sliding windows, with templates.", date: days(1), favorite: false, archived: false, notes: "" },
-  { title: "NeetCode: Graph Patterns Playlist", domain: "youtube.com", url: "https://youtube.com/watch?v=example5", type: "youtube", board: "dsa", tags: ["algorithms", "javascript"], description: "BFS, DFS, topological sort, and union-find explained with visuals.", date: days(9), favorite: false, archived: false, notes: "" },
-];
-
-const seedResources = () =>
-  RESOURCES_SEED.map((r) => ({ ...r, id: nid(), updated: r.date }));
+function persistResources(resources) {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(RESOURCES_STORAGE_KEY, JSON.stringify(resources));
+  } catch {
+    // Storage unavailable (private browsing, quota exceeded, etc). The app
+    // still works for this session — it just won't survive a refresh.
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /*  THEME + ACTIONS CONTEXT                                            */
@@ -101,8 +101,9 @@ function boardAccent(id) {
 
 function relTime(iso) {
   if (!iso) return "";
-  const diffMs = now.getTime() - new Date(iso).getTime();
+  const diffMs = Date.now() - new Date(iso).getTime();
   const diff = diffMs / 1000;
+  if (diff < 0) return "Just now"; // clock skew safety net — never show negative/future relative time
   if (diff < 60) return "Just now";
   if (diff < 3600) return `${Math.max(1, Math.round(diff / 60))}m ago`;
   if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
@@ -132,6 +133,22 @@ function guessTypeFromUrl(url) {
   if (u.includes("youtube.com") || u.includes("youtu.be")) return "youtube";
   if (u.startsWith("http")) return "web";
   return null;
+}
+
+// A URL typed/pasted without an explicit scheme (e.g. "react.dev/learn"
+// instead of "https://react.dev/learn") is a *relative* URL as far as the
+// browser is concerned, and an <a href> or window.open() with a relative
+// URL resolves against Curio's own origin — which is exactly why "Open
+// Resource" could end up back on Curio instead of the external site. This
+// normalizes a stored/typed URL to always carry an explicit scheme before
+// it's ever used to store or open a resource.
+function normalizeUrl(url) {
+  if (!url) return "";
+  const trimmed = url.trim();
+  if (!trimmed) return "";
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed; // other explicit schemes (mailto:, etc.) — leave as-is
+  return `https://${trimmed}`;
 }
 
 function usePrefersReducedMotion() {
@@ -236,7 +253,7 @@ function ResourceMenu({ resource }) {
       </button>
       {open && (
         <div className="surface popover" style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, width: 200, borderRadius: 10, padding: 6, zIndex: 50 }}>
-          {resource.url && <MenuItem icon={ExternalLink} label="Open" onClick={() => { window.open(resource.url, "_blank"); setOpen(false); }} />}
+          {resource.url && <MenuItem icon={ExternalLink} label="Open" onClick={() => { window.open(normalizeUrl(resource.url), "_blank", "noopener,noreferrer"); setOpen(false); }} />}
           <MenuItem icon={Pencil} label="Edit" onClick={() => { onEdit(resource); setOpen(false); }} />
           <MenuItem icon={Tag} label="Add Tag" onClick={() => { onEdit(resource); setOpen(false); }} />
           <MenuItem icon={Star} label={resource.favorite ? "Unfavorite" : "Favorite"} onClick={() => { onToggleFavorite(resource.id); setOpen(false); }} />
@@ -349,14 +366,15 @@ function ResourceModal({ initial, onSave, onClose }) {
     setSaving(true);
     setTimeout(() => {
       const tags = tagsText.split(",").map((t) => t.trim()).filter(Boolean);
-      const derivedTitle = title.trim() || (url ? url.replace(/^https?:\/\//, "").split("/")[0] : "Untitled resource");
-      const domain = url ? url.replace(/^https?:\/\//, "").split("/")[0] : (type === "note" ? "note" : "");
+      const normalizedUrl = normalizeUrl(url);
+      const derivedTitle = title.trim() || (normalizedUrl ? normalizedUrl.replace(/^https?:\/\//, "").split("/")[0] : "Untitled resource");
+      const domain = normalizedUrl ? normalizedUrl.replace(/^https?:\/\//, "").split("/")[0] : (type === "note" ? "note" : "");
       const nowIso = new Date().toISOString();
       onSave({
         ...(initial || {}),
         id: initial?.id ?? nid(),
         title: derivedTitle,
-        url,
+        url: normalizedUrl,
         domain,
         type,
         board,
@@ -480,7 +498,7 @@ function ResourceDetail({ resource, onClose }) {
         <div style={{ padding: "20px 20px 4px", maxHeight: "60vh", overflowY: "auto" }}>
           <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3, marginBottom: 6 }}>{resource.title}</div>
           {resource.domain && resource.domain !== "note" ? (
-            <a href={resource.url} target="_blank" rel="noreferrer" className="mono" style={{ fontSize: 12.5, color: "var(--accent-light)", display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 16, textDecoration: "none" }}>
+            <a href={normalizeUrl(resource.url)} target="_blank" rel="noreferrer" className="mono" style={{ fontSize: 12.5, color: "var(--accent-light)", display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 16, textDecoration: "none" }}>
               {resource.domain} <ExternalLink size={11} />
             </a>
           ) : <div style={{ marginBottom: 16 }} />}
@@ -525,7 +543,7 @@ function ResourceDetail({ resource, onClose }) {
 
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 20px", borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
           {resource.url && (
-            <a href={resource.url} target="_blank" rel="noreferrer" className="btn btn-primary" style={{ textDecoration: "none" }}>
+            <a href={normalizeUrl(resource.url)} target="_blank" rel="noreferrer" className="btn btn-primary" style={{ textDecoration: "none" }}>
               Open Resource <ExternalLink size={13} />
             </a>
           )}
@@ -995,7 +1013,7 @@ function StatPill({ value, label }) {
 function DashboardView({ resources, onAddResource, setView }) {
   const active = resources.filter((r) => !r.archived);
   const recent = [...active].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
-  const weekCount = active.filter((r) => (now - new Date(r.date)) / 86400000 <= 7).length;
+  const weekCount = active.filter((r) => (Date.now() - new Date(r.date).getTime()) / 86400000 <= 7).length;
 
   return (
     <div style={{ padding: "28px 24px 60px" }}>
@@ -1030,14 +1048,14 @@ function DashboardView({ resources, onAddResource, setView }) {
   );
 }
 
-function AllResourcesView({ title, resources, filters, emptyTitle, emptySubtitle, onAddResource }) {
+function AllResourcesView({ title, resources, filters, emptyTitle, emptySubtitle, emptyIcon, onAddResource }) {
   return (
     <div style={{ padding: "28px 24px 60px" }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, letterSpacing: -0.3, marginBottom: 4 }}>{title}</h1>
       <p style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 24 }}>{resources.length} resource{resources.length !== 1 ? "s" : ""}{filters.tag ? ` tagged #${filters.tag}` : ""}</p>
       <ResourceGrid
         list={resources}
-        emptyProps={{ icon: Search, title: emptyTitle || "Nothing matched your search.", subtitle: emptySubtitle || "Try another keyword or clear your filters.", action: onAddResource ? <button className="btn btn-primary" onClick={onAddResource}>Add a resource</button> : null }}
+        emptyProps={{ icon: emptyIcon || Search, title: emptyTitle || "Nothing matched your search.", subtitle: emptySubtitle || "Try another keyword or clear your filters.", action: onAddResource ? <button className="btn btn-primary" onClick={onAddResource}>Add a resource</button> : null }}
       />
     </div>
   );
@@ -1262,7 +1280,7 @@ function SettingsSection({ title, children, first }) {
 /* ------------------------------------------------------------------ */
 
 function CurioApp({ onBackToLanding }) {
-  const [resources, setResources] = useState(seedResources);
+  const [resources, setResources] = useState(loadStoredResources);
   const [view, setView] = useState({ name: "dashboard" });
   const [filters, setFilters] = useState({ type: "all", board: "all", status: "all", sort: "recent", tag: null, query: "" });
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -1273,6 +1291,14 @@ function CurioApp({ onBackToLanding }) {
   const [toast, setToast] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [theme, setTheme] = useState("dark");
+
+  // Persist every change (add/edit/favorite/archive/restore/move/delete/clear)
+  // back to storage. An empty array is itself a valid, permanent state — this
+  // effect never distinguishes "new user" from "user who deleted everything";
+  // both are simply persisted as [].
+  useEffect(() => {
+    persistResources(resources);
+  }, [resources]);
 
   useEffect(() => {
     if (view.name !== "all") setFilters((f) => ({ ...f, tag: null, query: "" }));
@@ -1357,6 +1383,7 @@ function CurioApp({ onBackToLanding }) {
     {};
 
   const filtered = useFilteredResources(resources, filters, extra);
+  const hasAnyActive = resources.some((r) => !r.archived);
 
   function openResourceFromPalette(r) {
     setPaletteOpen(false);
@@ -1395,10 +1422,18 @@ function CurioApp({ onBackToLanding }) {
               <DashboardView resources={resources} onAddResource={() => setAddOpen(true)} setView={setView} />
             )}
             {view.name === "all" && (
-              <AllResourcesView title={filters.tag ? `#${filters.tag}` : "All Resources"} resources={filtered} filters={filters} onAddResource={() => setAddOpen(true)} />
+              <AllResourcesView
+                title={filters.tag ? `#${filters.tag}` : "All Resources"}
+                resources={filtered}
+                filters={filters}
+                onAddResource={() => setAddOpen(true)}
+                emptyTitle={hasAnyActive ? undefined : "Your research library is empty."}
+                emptySubtitle={hasAnyActive ? undefined : "Save your first resource to start building your research library."}
+                emptyIcon={hasAnyActive ? undefined : LayoutGrid}
+              />
             )}
             {view.name === "favorites" && (
-              <AllResourcesView title="Favorites" resources={filtered} filters={filters} emptyTitle="Nothing saved here yet." emptySubtitle="Favorite resources you want to return to quickly." onAddResource={() => setAddOpen(true)} />
+              <AllResourcesView title="Favorites" resources={filtered} filters={filters} emptyTitle="Nothing saved to favorites yet." emptySubtitle="Favorite resources you want to return to quickly." emptyIcon={Star} onAddResource={() => setAddOpen(true)} />
             )}
             {view.name === "archive" && <ArchiveView resources={filtered} />}
             {view.name === "boards" && (
