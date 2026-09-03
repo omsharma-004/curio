@@ -65,6 +65,27 @@ function persistResources(resources) {
   }
 }
 
+const THEME_STORAGE_KEY = "curio.theme.v1";
+
+function loadStoredTheme() {
+  try {
+    if (typeof localStorage === "undefined") return "dark";
+    const raw = localStorage.getItem(THEME_STORAGE_KEY);
+    return raw === "light" ? "light" : "dark"; // default behavior preserved when nothing is stored
+  } catch {
+    return "dark";
+  }
+}
+
+function persistTheme(theme) {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // Storage unavailable — theme still works for this session.
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /*  THEME + ACTIONS CONTEXT                                            */
 /* ------------------------------------------------------------------ */
@@ -149,6 +170,25 @@ function normalizeUrl(url) {
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return trimmed; // other explicit schemes (mailto:, etc.) — leave as-is
   return `https://${trimmed}`;
+}
+
+// Validation is distinct from normalization: normalization fixes up a
+// missing scheme ("react.dev/learn" -> "https://react.dev/learn"), while
+// validation rejects input that still isn't a real address after that
+// ("hello" -> "https://hello", which has no real domain and would 404).
+function isLikelyValidUrl(rawUrl) {
+  const normalized = normalizeUrl(rawUrl);
+  if (!normalized) return false;
+  let parsed;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    return false;
+  }
+  if (!/^https?:$/.test(parsed.protocol)) return true; // non-http(s) explicit scheme — not this field's concern
+  // Require something that looks like a real domain: at least one dot,
+  // e.g. "react.dev", "github.com" — rejects bare words like "hello".
+  return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i.test(parsed.hostname);
 }
 
 function usePrefersReducedMotion() {
@@ -346,7 +386,7 @@ function ResourceModal({ initial, onSave, onClose }) {
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [urlError, setUrlError] = useState(false);
+  const [urlError, setUrlError] = useState(null); // null | "empty" | "invalid"
   const urlRef = useRef(null);
 
   useEffect(() => { urlRef.current?.focus(); }, []);
@@ -361,7 +401,10 @@ function ResourceModal({ initial, onSave, onClose }) {
   }, [url, isEdit, typeManual]);
 
   function handleSave() {
-    if (!isEdit && !url.trim()) { setUrlError(true); return; }
+    if (!isEdit) {
+      if (!url.trim()) { setUrlError("empty"); return; }
+      if (!isLikelyValidUrl(url)) { setUrlError("invalid"); return; }
+    }
     if (isEdit && !title.trim()) return;
     setSaving(true);
     setTimeout(() => {
@@ -409,16 +452,22 @@ function ResourceModal({ initial, onSave, onClose }) {
                 style={{ width: "100%" }}
                 placeholder="https://..."
                 value={url}
-                onChange={(e) => { setUrl(e.target.value); if (urlError) setUrlError(false); }}
+                onChange={(e) => { setUrl(e.target.value); if (urlError) setUrlError(null); }}
               />
               <div style={{ minHeight: 18, display: "flex", alignItems: "center", gap: 6 }}>
-                {urlError && <span style={{ fontSize: 11.5, color: "var(--error)" }}>Enter a URL to continue.</span>}
+                {urlError === "empty" && <span style={{ fontSize: 11.5, color: "var(--error)" }}>Enter a URL to continue.</span>}
+                {urlError === "invalid" && <span style={{ fontSize: 11.5, color: "var(--error)" }}>Please enter a valid URL.</span>}
                 {!urlError && recognized && (
                   <span style={{ fontSize: 11.5, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 5 }}>
                     <Check size={12} color="var(--success)" /> Recognized as {TYPE_META[recognized].label}
                   </span>
                 )}
               </div>
+            </Field>
+          )}
+          {!isEdit && (
+            <Field label="Title" hint="optional — uses the URL if left blank">
+              <input className="input" style={{ width: "100%" }} placeholder="Give it a name..." value={title} onChange={(e) => setTitle(e.target.value)} />
             </Field>
           )}
           {isEdit && (
@@ -720,6 +769,10 @@ function PaletteRow({ children, active, onClick }) {
 /*  FILTER POPOVER                                                      */
 /* ------------------------------------------------------------------ */
 
+function toggleInList(list, value) {
+  return list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
+}
+
 function FilterPopover({ filters, setFilters, onClose }) {
   const ref = useRef(null);
   useEffect(() => {
@@ -743,41 +796,33 @@ function FilterPopover({ filters, setFilters, onClose }) {
     >
       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, color: "var(--text-muted)", marginBottom: 12 }}>FILTERS</div>
       <PopoverGroup label="Type">
-        {["all", "web", "github", "youtube", "note"].map((t) => (
-          <Chip key={t} active={filters.type === t} onClick={() => setFilters((f) => ({ ...f, type: t }))}>
-            {t === "all" ? "All" : TYPE_META[t].label}
+        <Chip active={filters.type.length === 0} onClick={() => setFilters((f) => ({ ...f, type: [] }))}>All</Chip>
+        {["web", "github", "youtube", "note"].map((t) => (
+          <Chip key={t} active={filters.type.includes(t)} onClick={() => setFilters((f) => ({ ...f, type: toggleInList(f.type, t) }))}>
+            {TYPE_META[t].label}
           </Chip>
         ))}
       </PopoverGroup>
 
       <PopoverGroup label="Board" scroll>
-        <Chip active={filters.board === "all"} onClick={() => setFilters((f) => ({ ...f, board: "all" }))}>All</Chip>
+        <Chip active={filters.board.length === 0} onClick={() => setFilters((f) => ({ ...f, board: [] }))}>All</Chip>
         {BOARDS.map((b) => (
-          <Chip key={b.id} active={filters.board === b.id} onClick={() => setFilters((f) => ({ ...f, board: b.id }))}>{b.name}</Chip>
+          <Chip key={b.id} active={filters.board.includes(b.id)} onClick={() => setFilters((f) => ({ ...f, board: toggleInList(f.board, b.id) }))}>{b.name}</Chip>
         ))}
       </PopoverGroup>
 
       <PopoverGroup label="Status">
-        {["all", "favorites", "archived"].map((s) => (
-          <Chip key={s} active={filters.status === s} onClick={() => setFilters((f) => ({ ...f, status: s }))}>
-            {s === "all" ? "Active" : s === "favorites" ? "Favorites" : "Archived"}
+        {[["active", "Active"], ["favorites", "Favorites"], ["archived", "Archived"]].map(([s, label]) => (
+          <Chip key={s} active={filters.status.includes(s)} onClick={() => setFilters((f) => ({ ...f, status: toggleInList(f.status, s) }))}>
+            {label}
           </Chip>
         ))}
       </PopoverGroup>
 
-      <div style={{ marginBottom: 4 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-muted)", marginBottom: 8 }}>Sort</div>
-        <select className="input select" style={{ width: "100%" }} value={filters.sort} onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value }))}>
-          <option value="recent">Recently added</option>
-          <option value="updated">Recently updated</option>
-          <option value="az">A–Z</option>
-        </select>
-      </div>
-
       <button
         className="btn btn-ghost"
-        style={{ width: "100%", justifyContent: "center", marginTop: 12 }}
-        onClick={() => setFilters((f) => ({ ...f, type: "all", board: "all", status: "all", sort: "recent" }))}
+        style={{ width: "100%", justifyContent: "center", marginTop: 4 }}
+        onClick={() => setFilters((f) => ({ ...f, type: [], board: [], status: [] }))}
       >
         Clear filters
       </button>
@@ -944,11 +989,22 @@ function useFilteredResources(resources, filters, extra) {
     if (extra?.board) list = list.filter((r) => r.board === extra.board);
     if (extra?.onlyFavorites) list = list.filter((r) => r.favorite && !r.archived);
     else if (extra?.onlyArchived) list = list.filter((r) => r.archived);
-    else list = list.filter((r) => !r.archived);
+    else if (filters.status.length > 0) {
+      // Status is only meaningful when the view itself doesn't already impose
+      // a hard archived/favorites scope (i.e. the "All Resources" view) — the
+      // dedicated Favorites/Archive views above already handle their own case.
+      list = list.filter((r) =>
+        filters.status.some((s) => {
+          if (s === "favorites") return r.favorite && !r.archived;
+          if (s === "archived") return r.archived;
+          if (s === "active") return !r.archived;
+          return false;
+        })
+      );
+    } else list = list.filter((r) => !r.archived);
 
-    if (filters.type !== "all") list = list.filter((r) => r.type === filters.type);
-    if (filters.board !== "all" && !extra?.board) list = list.filter((r) => r.board === filters.board);
-    if (filters.status === "favorites") list = list.filter((r) => r.favorite);
+    if (filters.type.length > 0) list = list.filter((r) => filters.type.includes(r.type));
+    if (filters.board.length > 0 && !extra?.board) list = list.filter((r) => filters.board.includes(r.board));
     if (filters.tag) list = list.filter((r) => r.tags.includes(filters.tag));
     if (filters.query?.trim()) {
       const q = filters.query.toLowerCase();
@@ -957,7 +1013,8 @@ function useFilteredResources(resources, filters, extra) {
 
     const sorted = [...list];
     if (filters.sort === "az") sorted.sort((a, b) => a.title.localeCompare(b.title));
-    else if (filters.sort === "updated") sorted.sort((a, b) => new Date(b.updated || b.date) - new Date(a.updated || a.date));
+    else if (filters.sort === "za") sorted.sort((a, b) => b.title.localeCompare(a.title));
+    else if (filters.sort === "oldest") sorted.sort((a, b) => new Date(a.date) - new Date(b.date));
     else sorted.sort((a, b) => new Date(b.date) - new Date(a.date));
     return sorted;
   }, [resources, filters, extra]);
@@ -975,6 +1032,7 @@ function ResourceGrid({ list, muted, emptyProps }) {
 function TopBar({ onSearchClick, onAddResource, showFilters, filters, setFilters, mobileOpen, setMobileOpen }) {
   const [filterOpen, setFilterOpen] = useState(false);
   const mac = isMac();
+  const activeFilterCount = filters.type.length + filters.board.length + filters.status.length;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 24px", borderBottom: "1px solid var(--border)", position: "sticky", top: 0, background: "var(--bg)", zIndex: 20 }}>
       <button className="icon-btn mobile-only" onClick={() => setMobileOpen(true)} aria-label="Open menu"><Menu size={18} /></button>
@@ -986,12 +1044,31 @@ function TopBar({ onSearchClick, onAddResource, showFilters, filters, setFilters
       </button>
 
       {showFilters && (
-        <div style={{ position: "relative" }}>
-          <button className="btn btn-secondary" onClick={() => setFilterOpen((o) => !o)}>
-            <Filter size={13} /> Filter
-          </button>
-          {filterOpen && <FilterPopover filters={filters} setFilters={setFilters} onClose={() => setFilterOpen(false)} />}
-        </div>
+        <>
+          <select
+            className="input select hide-sm"
+            aria-label="Sort"
+            value={filters.sort}
+            onChange={(e) => setFilters((f) => ({ ...f, sort: e.target.value }))}
+            style={{ flexShrink: 0 }}
+          >
+            <option value="recent">Recently Added</option>
+            <option value="oldest">Oldest Added</option>
+            <option value="az">Title A → Z</option>
+            <option value="za">Title Z → A</option>
+          </select>
+
+          <div style={{ position: "relative" }}>
+            <button
+              className="btn btn-secondary"
+              onClick={() => setFilterOpen((o) => !o)}
+              style={activeFilterCount > 0 ? { borderColor: "var(--accent)", color: "var(--accent-light)" } : undefined}
+            >
+              <Filter size={13} /> Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+            </button>
+            {filterOpen && <FilterPopover filters={filters} setFilters={setFilters} onClose={() => setFilterOpen(false)} />}
+          </div>
+        </>
       )}
 
       <button className="btn btn-primary" onClick={onAddResource}>
@@ -1132,7 +1209,8 @@ function BoardDetailView({ boardId, resources, setView, onAddResource }) {
     if (typeFilter !== "all") l = l.filter((r) => r.type === typeFilter);
     l = [...l];
     if (sort === "az") l.sort((a, b) => a.title.localeCompare(b.title));
-    else if (sort === "updated") l.sort((a, b) => new Date(b.updated || b.date) - new Date(a.updated || a.date));
+    else if (sort === "za") l.sort((a, b) => b.title.localeCompare(a.title));
+    else if (sort === "oldest") l.sort((a, b) => new Date(a.date) - new Date(b.date));
     else l.sort((a, b) => new Date(b.date) - new Date(a.date));
     return l;
   }, [resources, typeFilter, sort]);
@@ -1153,9 +1231,10 @@ function BoardDetailView({ boardId, resources, setView, onAddResource }) {
           ))}
         </div>
         <select className="input select" value={sort} onChange={(e) => setSort(e.target.value)}>
-          <option value="recent">Recently added</option>
-          <option value="updated">Recently updated</option>
-          <option value="az">Alphabetical</option>
+          <option value="recent">Recently Added</option>
+          <option value="oldest">Oldest Added</option>
+          <option value="az">Title A → Z</option>
+          <option value="za">Title Z → A</option>
         </select>
       </div>
 
@@ -1203,8 +1282,9 @@ function TagsView({ resources, setView }) {
   );
 }
 
-function SettingsView({ onExport, onImport, onClearRequest, theme, setTheme }) {
+function SettingsView({ onExport, onImportFile, onClearRequest, theme, setTheme }) {
   const mac = isMac();
+  const fileInputRef = useRef(null);
   const shortcuts = [
     [mac ? "⌘ K" : "Ctrl K", "Search"],
     ["N", "New resource"],
@@ -1239,10 +1319,23 @@ function SettingsView({ onExport, onImport, onClearRequest, theme, setTheme }) {
       </SettingsSection>
 
       <SettingsSection title="Data">
-        <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginBottom: 12 }}>Your research stays on your device. Export a backup whenever you want.</p>
+        <p style={{ fontSize: 12.5, color: "var(--text-muted)", marginBottom: 12 }}>
+          Your research stays on your device. Export downloads a full backup; Import adds resources from a backup file without replacing your existing library.
+        </p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button className="btn btn-secondary" onClick={onExport}><Download size={13} /> Export Data</button>
-          <button className="btn btn-secondary" onClick={onImport}><Upload size={13} /> Import Data</button>
+          <button className="btn btn-secondary" onClick={() => fileInputRef.current?.click()}><Upload size={13} /> Import Data</button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onImportFile(file);
+              e.target.value = ""; // allow re-selecting the same file next time
+            }}
+          />
           <button className="btn btn-danger-ghost" onClick={onClearRequest}><Trash2 size={13} /> Clear All Data</button>
         </div>
       </SettingsSection>
@@ -1279,10 +1372,10 @@ function SettingsSection({ title, children, first }) {
 /*  APP (post-landing)                                                  */
 /* ------------------------------------------------------------------ */
 
-function CurioApp({ onBackToLanding }) {
+function CurioApp({ onBackToLanding, theme, setTheme }) {
   const [resources, setResources] = useState(loadStoredResources);
   const [view, setView] = useState({ name: "dashboard" });
-  const [filters, setFilters] = useState({ type: "all", board: "all", status: "all", sort: "recent", tag: null, query: "" });
+  const [filters, setFilters] = useState({ type: [], board: [], status: [], sort: "recent", tag: null, query: "" });
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [editResource, setEditResource] = useState(null);
@@ -1290,7 +1383,6 @@ function CurioApp({ onBackToLanding }) {
   const [confirm, setConfirm] = useState(null); // { type: 'delete'|'clear', id, title }
   const [toast, setToast] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [theme, setTheme] = useState("dark");
 
   // Persist every change (add/edit/favorite/archive/restore/move/delete/clear)
   // back to storage. An empty array is itself a valid, permanent state — this
@@ -1307,6 +1399,51 @@ function CurioApp({ onBackToLanding }) {
   useEffect(() => {
     if (view.tag) setFilters((f) => ({ ...f, tag: view.tag }));
   }, [view.tag]);
+
+  // Represent meaningful in-app navigation (which view is showing, and
+  // whether a resource detail is open) as real browser history entries, so
+  // Back/Forward move through the app the way a user would expect instead of
+  // jumping straight past everything to the landing page. The very first
+  // entry for "/app" (pushed when the user clicked "Open Curio") is left
+  // alone on mount — we only start pushing new entries for navigation that
+  // happens *after* the app is already open, and we enrich that first entry
+  // in place (via replaceState) so popping back to it restores the initial
+  // view rather than landing on a blank state.
+  const isPoppingRef = useRef(false);
+  const historyInitRef = useRef(false);
+  useEffect(() => {
+    if (!historyInitRef.current) {
+      historyInitRef.current = true;
+      try {
+        window.history.replaceState({ curioView: view, curioDetailId: detailResource ? detailResource.id : null }, "", "/app");
+      } catch {}
+      return;
+    }
+    if (isPoppingRef.current) {
+      isPoppingRef.current = false;
+      return;
+    }
+    try {
+      window.history.pushState({ curioView: view, curioDetailId: detailResource ? detailResource.id : null }, "", "/app");
+    } catch {}
+  }, [view, detailResource]);
+
+  useEffect(() => {
+    function onPopState(e) {
+      const state = e.state;
+      if (state && state.curioView) {
+        isPoppingRef.current = true;
+        setView(state.curioView);
+        setDetailResource(state.curioDetailId ? resources.find((r) => r.id === state.curioDetailId) || null : null);
+      }
+      // If this history entry doesn't carry curioView, we've popped back to
+      // (or past) the landing/app boundary — useAppRoute's own popstate
+      // listener (based on window.location.pathname) handles switching back
+      // to the landing page in that case.
+    }
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [resources]);
 
   useEffect(() => {
     function onKey(e) {
@@ -1374,6 +1511,81 @@ function CurioApp({ onBackToLanding }) {
     setResources([]);
     setConfirm(null);
     showToast("All data cleared");
+  }
+
+  function exportBackup() {
+    const payload = {
+      curioExport: true,
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      theme,
+      resources,
+    };
+    try {
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `curio-backup-${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast("Backup downloaded");
+    } catch {
+      showToast("Export failed — couldn't create the file");
+    }
+  }
+
+  function isPlausibleResource(r) {
+    return r && typeof r === "object" && typeof r.title === "string" && typeof r.type === "string" && TYPE_META[r.type];
+  }
+
+  function importBackup(file) {
+    const reader = new FileReader();
+    reader.onerror = () => showToast("Import failed — couldn't read the file");
+    reader.onload = () => {
+      let parsed;
+      try {
+        parsed = JSON.parse(String(reader.result));
+      } catch {
+        showToast("Import failed — not a valid JSON file");
+        return;
+      }
+      const incoming = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.resources) ? parsed.resources : null;
+      if (!incoming) {
+        showToast("Import failed — this doesn't look like a Curio backup");
+        return;
+      }
+      const valid = incoming.filter(isPlausibleResource);
+      if (valid.length === 0) {
+        showToast("Import failed — no valid resources found in that file");
+        return;
+      }
+      // Merge (least destructive): keep everything the user already has, add
+      // the imported resources with fresh ids so they can never collide with
+      // (or silently overwrite) an existing resource.
+      const nowIso = new Date().toISOString();
+      const imported = valid.map((r) => ({
+        title: r.title,
+        url: typeof r.url === "string" ? normalizeUrl(r.url) : "",
+        domain: typeof r.domain === "string" ? r.domain : "",
+        type: TYPE_META[r.type] ? r.type : "web",
+        board: BOARDS.some((b) => b.id === r.board) ? r.board : BOARDS[0].id,
+        tags: Array.isArray(r.tags) ? r.tags.filter((t) => typeof t === "string") : [],
+        notes: typeof r.notes === "string" ? r.notes : "",
+        description: typeof r.description === "string" ? r.description : "",
+        favorite: !!r.favorite,
+        archived: !!r.archived,
+        date: typeof r.date === "string" ? r.date : nowIso,
+        updated: nowIso,
+        id: nid(),
+      }));
+      setResources((rs) => [...imported, ...rs]);
+      showToast(`Imported ${imported.length} resource${imported.length !== 1 ? "s" : ""}`);
+    };
+    reader.readAsText(file);
   }
 
   const extra =
@@ -1447,8 +1659,8 @@ function CurioApp({ onBackToLanding }) {
               <SettingsView
                 theme={theme}
                 setTheme={setTheme}
-                onExport={() => showToast("Exported curio-backup.json")}
-                onImport={() => showToast("Import is mocked in V0")}
+                onExport={exportBackup}
+                onImportFile={importBackup}
                 onClearRequest={() => setConfirm({ type: "clear" })}
               />
             )}
@@ -1617,7 +1829,7 @@ function LandingNav({ onOpen }) {
     { id: "about", label: "About" },
   ];
   return (
-    <nav style={{ position: "sticky", top: 0, zIndex: 30, background: "var(--nav-bg)", backdropFilter: "blur(10px)", borderBottom: "1px solid var(--border)" }}>
+    <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 30, background: "var(--nav-bg)", backdropFilter: "blur(10px)", borderBottom: "1px solid var(--border)" }}>
       <div style={{ maxWidth: 1120, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 24px" }}>
         <button onClick={scrollToTop} aria-label="Curio — scroll to top" style={{ display: "flex", alignItems: "center", gap: 9, background: "none", border: "none", cursor: "pointer", padding: 2 }}>
           <Logo size={20} />
@@ -2048,12 +2260,14 @@ const FAQ_ITEMS = [
   { q: "What types of resources can I save?", a: "Web pages, GitHub repositories, YouTube videos, and your own notes." },
 ];
 
-function Landing({ onOpen }) {
+function Landing({ onOpen, theme }) {
   const { workflowIndex, step, reduced } = useWorkflowSequence();
   return (
-    <div className="curio" data-theme="dark">
-      <style>{CSS}</style>
-      <LandingNav onOpen={onOpen} />
+    <ThemeContext.Provider value={theme}>
+      <div className="curio" data-theme={theme}>
+        <style>{CSS}</style>
+        <LandingNav onOpen={onOpen} />
+        <div style={{ height: 62 }} aria-hidden="true" />
 
       {/* HERO */}
       <section style={{ position: "relative", overflow: "hidden" }}>
@@ -2253,8 +2467,9 @@ function Landing({ onOpen }) {
           </div>
         </div>
         <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--text-muted)", marginTop: 20 }}>Built for people who are curious.</div>
-      </footer>
-    </div>
+        </footer>
+      </div>
+    </ThemeContext.Provider>
   );
 }
 
@@ -2301,7 +2516,15 @@ function useAppRoute() {
 
 export default function CurioPrototype() {
   const [inApp, navigate] = useAppRoute();
-  return inApp ? <CurioApp onBackToLanding={() => navigate(false)} /> : <Landing onOpen={() => navigate(true)} />;
+  const [theme, setTheme] = useState(loadStoredTheme);
+
+  useEffect(() => {
+    persistTheme(theme);
+  }, [theme]);
+
+  return inApp
+    ? <CurioApp onBackToLanding={() => navigate(false)} theme={theme} setTheme={setTheme} />
+    : <Landing onOpen={() => navigate(true)} theme={theme} />;
 }
 
 /* ------------------------------------------------------------------ */
@@ -2492,6 +2715,8 @@ const CSS = `
 }
 
 .section-divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); max-width: 1000px; margin: 0 auto; }
+
+#product, #how, #features, #about { scroll-margin-top: 78px; }
 
 .flow-connector { position: relative; display: flex; align-items: center; justify-content: center; gap: 0; padding-top: 44px; flex: 1 1 24px; min-width: 24px; max-width: 60px; }
 .flow-track { position: relative; width: 100%; height: 1px; background: var(--border-hover); }
