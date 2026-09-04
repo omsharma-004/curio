@@ -1864,7 +1864,7 @@ function LandingNav({ onOpen }) {
           ))}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button className="btn btn-secondary hide-sm" onClick={() => window.open("https://github.com", "_blank")}><Github size={14} /> GitHub</button>
+          <button className="btn btn-secondary hide-sm" onClick={() => window.open("https://github.com/omsharma-004/curio", "_blank", "noopener,noreferrer")}><Github size={14} /> GitHub</button>
           <button className="btn btn-primary" onClick={onOpen}>Open Curio</button>
         </div>
       </div>
@@ -2471,7 +2471,7 @@ function Landing({ onOpen, theme }) {
           </div>
           <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
             <button className="btn btn-primary" style={{ padding: "11px 20px", fontSize: 14 }} onClick={onOpen}>Open Curio</button>
-            <button className="btn btn-secondary" style={{ padding: "11px 20px", fontSize: 14 }} onClick={() => window.open("https://github.com", "_blank")}>View on GitHub</button>
+            <button className="btn btn-secondary" style={{ padding: "11px 20px", fontSize: 14 }} onClick={() => window.open("https://github.com/omsharma-004/curio", "_blank", "noopener,noreferrer")}>View on GitHub</button>
           </div>
         </div>
       </section>
@@ -2484,7 +2484,7 @@ function Landing({ onOpen, theme }) {
             <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Capture. Organize. Discover.</div>
           </div>
           <div style={{ display: "flex", gap: 20, fontSize: 12.5, color: "var(--text-secondary)" }}>
-            <a className="nav-link" href="https://github.com" target="_blank" rel="noreferrer">GitHub</a>
+            <a className="nav-link" href="https://github.com/omsharma-004/curio" target="_blank" rel="noopener noreferrer">GitHub</a>
             <span className="nav-link" style={{ cursor: "default" }}>Privacy</span>
             <span className="nav-link" style={{ cursor: "default" }}>About</span>
           </div>
