@@ -1340,6 +1340,18 @@ function SettingsView({ onExport, onImportFile, onClearRequest, theme, setTheme 
         </div>
       </SettingsSection>
 
+      <SettingsSection title="Local-first storage">
+        <p style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6, marginBottom: 10 }}>
+          Your Curio library is stored locally in this browser. Your data is not currently synced between different browsers or devices.
+        </p>
+        <p style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6, marginBottom: 10 }}>
+          To move your library to another browser or device, use Export to create a backup and Import to restore it.
+        </p>
+        <p style={{ fontSize: 12, color: "var(--accent-light)", lineHeight: 1.6 }}>
+          Coming in a future update: optional cross-device sync.
+        </p>
+      </SettingsSection>
+
       <SettingsSection title="Privacy">
         <p style={{ fontSize: 12.5, color: "var(--text-muted)", lineHeight: 1.6 }}>
           Curio is local-first: your resources, boards, tags, and notes are stored on this device. No account is required to use it, and you can export your library as a backup at any time.
@@ -1374,7 +1386,7 @@ function SettingsSection({ title, children, first }) {
 
 function CurioApp({ onBackToLanding, theme, setTheme }) {
   const [resources, setResources] = useState(loadStoredResources);
-  const [view, setView] = useState({ name: "dashboard" });
+  const [view, setView] = useState(() => pathToView(typeof window !== "undefined" ? window.location.pathname : "/app"));
   const [filters, setFilters] = useState({ type: [], board: [], status: [], sort: "recent", tag: null, query: "" });
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -1401,21 +1413,23 @@ function CurioApp({ onBackToLanding, theme, setTheme }) {
   }, [view.tag]);
 
   // Represent meaningful in-app navigation (which view is showing, and
-  // whether a resource detail is open) as real browser history entries, so
-  // Back/Forward move through the app the way a user would expect instead of
-  // jumping straight past everything to the landing page. The very first
-  // entry for "/app" (pushed when the user clicked "Open Curio") is left
-  // alone on mount — we only start pushing new entries for navigation that
-  // happens *after* the app is already open, and we enrich that first entry
-  // in place (via replaceState) so popping back to it restores the initial
-  // view rather than landing on a blank state.
+  // whether a resource detail is open) as real browser history entries with
+  // real distinct URLs per view (/app/all, /app/favorites, etc.), so
+  // Back/Forward move through the app the way a user would expect, and a
+  // refresh or direct visit to one of these URLs restores that same view.
+  // The very first entry for "/app" (pushed when the user clicked "Open
+  // Curio") is left alone on mount — we only start pushing new entries for
+  // navigation that happens *after* the app is already open, and we enrich
+  // that first entry in place (via replaceState) so popping back to it (or
+  // refreshing on it) restores the initial view rather than a blank state.
   const isPoppingRef = useRef(false);
   const historyInitRef = useRef(false);
   useEffect(() => {
+    const path = viewToPath(view);
     if (!historyInitRef.current) {
       historyInitRef.current = true;
       try {
-        window.history.replaceState({ curioView: view, curioDetailId: detailResource ? detailResource.id : null }, "", "/app");
+        window.history.replaceState({ curioView: view, curioDetailId: detailResource ? detailResource.id : null }, "", path);
       } catch {}
       return;
     }
@@ -1424,7 +1438,7 @@ function CurioApp({ onBackToLanding, theme, setTheme }) {
       return;
     }
     try {
-      window.history.pushState({ curioView: view, curioDetailId: detailResource ? detailResource.id : null }, "", "/app");
+      window.history.pushState({ curioView: view, curioDetailId: detailResource ? detailResource.id : null }, "", path);
     } catch {}
   }, [view, detailResource]);
 
@@ -1435,11 +1449,20 @@ function CurioApp({ onBackToLanding, theme, setTheme }) {
         isPoppingRef.current = true;
         setView(state.curioView);
         setDetailResource(state.curioDetailId ? resources.find((r) => r.id === state.curioDetailId) || null : null);
+        return;
       }
-      // If this history entry doesn't carry curioView, we've popped back to
-      // (or past) the landing/app boundary — useAppRoute's own popstate
-      // listener (based on window.location.pathname) handles switching back
-      // to the landing page in that case.
+      // No curioView on this entry: either we've popped back to the
+      // landing/app boundary (useAppRoute's own popstate listener handles
+      // that), or forward/back landed on a URL that wasn't pushed by this
+      // effect (e.g. a bookmarked /app/favorites entry with no state yet).
+      // In that case, derive the view straight from the URL itself.
+      try {
+        if (window.location.pathname.startsWith("/app")) {
+          isPoppingRef.current = true;
+          setView(pathToView(window.location.pathname));
+          setDetailResource(null);
+        }
+      } catch {}
     }
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -2473,10 +2496,36 @@ function Landing({ onOpen, theme }) {
   );
 }
 
+// Maps an in-app view to a real, distinct URL path (so refresh/direct-load/
+// share-a-link all work), and back. Kept intentionally simple — no route
+// params beyond board id, no resource-detail segment (detail stays
+// history-state-only, as before, to avoid unnecessary complexity).
+const VIEW_URL_NAMES = ["all", "favorites", "archive", "boards", "tags", "settings"];
+
+function viewToPath(view) {
+  if (!view) return "/app";
+  if (view.name === "boardDetail" && view.boardId) return `/app/boards/${encodeURIComponent(view.boardId)}`;
+  if (VIEW_URL_NAMES.includes(view.name)) return `/app/${view.name}`;
+  return "/app";
+}
+
+function pathToView(pathname) {
+  const parts = String(pathname || "").replace(/^\/app\/?/, "").split("/").filter(Boolean);
+  if (parts.length === 0) return { name: "dashboard" };
+  const [first, second] = parts;
+  if (first === "boards" && second) {
+    const boardId = decodeURIComponent(second);
+    return BOARDS.some((b) => b.id === boardId) ? { name: "boardDetail", boardId } : { name: "boards" };
+  }
+  if (VIEW_URL_NAMES.includes(first)) return { name: first };
+  return { name: "dashboard" };
+}
+
 function useAppRoute() {
+  const isAppPath = (pathname) => pathname === "/app" || pathname.startsWith("/app/");
   const getPath = () => {
     try {
-      return window.location.pathname === "/app";
+      return isAppPath(window.location.pathname);
     } catch {
       return false;
     }
@@ -2486,7 +2535,7 @@ function useAppRoute() {
   useEffect(() => {
     function onPopState() {
       try {
-        setInApp(window.location.pathname === "/app");
+        setInApp(isAppPath(window.location.pathname));
       } catch {
         /* sandboxed environment — state-only navigation still works */
       }
