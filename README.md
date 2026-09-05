@@ -37,7 +37,7 @@ Capture useful resources, organize them into boards and tags, then quickly find 
 - JavaScript
 - CSS
 - Browser LocalStorage
-- History API
+- Client-side routing via the browser History API
 - Vercel
 - GitHub
 
@@ -78,7 +78,7 @@ This means:
 - Different browsers and devices have separate libraries.
 - You can use **Export / Import** to move your library between browsers or devices.
 
-> Cloud sync and cross-device synchronization are not part of the current V1.
+> Cloud sync and cross-device synchronization are not part of the current V0.
 
 ---
 
@@ -111,9 +111,9 @@ Future improvements may include:
 
 ## 📌 Current Status
 
-**V1 — Shipped**
+**V0 — Core features complete, deployed**
 
-Curio is a focused local-first research library with the core capture, organization, discovery, persistence, and data-management workflows implemented and deployed.
+Curio is a focused local-first research library with the core capture, organization, discovery, persistence, and data-management workflows implemented.
 
 ---
 
