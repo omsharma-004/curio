@@ -326,7 +326,7 @@ function ResourceCard({ resource, muted }) {
     <div
       className="card resource-card"
       onClick={() => onOpen(resource)}
-      style={{ padding: 16, cursor: "pointer", opacity: muted ? 0.55 : 1, display: "flex", flexDirection: "column", gap: 10 }}
+      style={{ padding: 16, cursor: "pointer", opacity: muted ? 0.55 : 1, display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, letterSpacing: 0.4, color: typeColor(resource.type, theme), textTransform: "uppercase" }}>
@@ -355,7 +355,7 @@ function ResourceCard({ resource, muted }) {
       )}
 
       {resource.tags.length > 0 && (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, minWidth: 0 }}>
           {visibleTags.map((t) => <span key={t} className="tag">#{t}</span>)}
           {overflow > 0 && <span className="tag" style={{ color: "var(--text-muted)" }}>+{overflow}</span>}
         </div>
@@ -383,6 +383,7 @@ function ResourceModal({ initial, onSave, onClose }) {
   const [typeManual, setTypeManual] = useState(!!initial);
   const [board, setBoard] = useState(initial?.board ?? BOARDS[0].id);
   const [tagsText, setTagsText] = useState(initial?.tags?.join(", ") ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -423,7 +424,7 @@ function ResourceModal({ initial, onSave, onClose }) {
         board,
         tags,
         notes,
-        description: initial?.description ?? "",
+        description,
         date: initial?.date ?? nowIso,
         updated: nowIso,
         favorite: initial?.favorite ?? false,
@@ -493,6 +494,10 @@ function ResourceModal({ initial, onSave, onClose }) {
             <input className="input" style={{ width: "100%" }} placeholder="react, performance" value={tagsText} onChange={(e) => setTagsText(e.target.value)} />
           </Field>
 
+          <Field label="Description" hint="optional">
+            <textarea className="input" style={{ width: "100%", minHeight: 60, resize: "vertical", fontFamily: "inherit" }} placeholder="What is this resource about?" value={description} onChange={(e) => setDescription(e.target.value)} />
+          </Field>
+
           <Field label="Notes">
             <textarea className="input" style={{ width: "100%", minHeight: 72, resize: "vertical", fontFamily: "inherit" }} placeholder="Add a note..." value={notes} onChange={(e) => setNotes(e.target.value)} />
           </Field>
@@ -545,9 +550,9 @@ function ResourceDetail({ resource, onClose }) {
         </div>
 
         <div style={{ padding: "20px 20px 4px", maxHeight: "60vh", overflowY: "auto" }}>
-          <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3, marginBottom: 6 }}>{resource.title}</div>
+          <div style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3, marginBottom: 6, overflowWrap: "break-word", wordBreak: "break-word" }}>{resource.title}</div>
           {resource.domain && resource.domain !== "note" ? (
-            <a href={normalizeUrl(resource.url)} target="_blank" rel="noreferrer" className="mono" style={{ fontSize: 12.5, color: "var(--accent-light)", display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 16, textDecoration: "none" }}>
+            <a href={normalizeUrl(resource.url)} target="_blank" rel="noreferrer" className="mono" style={{ fontSize: 12.5, color: "var(--accent-light)", display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 16, textDecoration: "none", minWidth: 0, maxWidth: "100%", overflowWrap: "break-word", wordBreak: "break-word" }}>
               {resource.domain} <ExternalLink size={11} />
             </a>
           ) : <div style={{ marginBottom: 16 }} />}
@@ -559,7 +564,7 @@ function ResourceDetail({ resource, onClose }) {
           </div>
 
           {resource.tags.length > 0 && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 18 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 18, minWidth: 0 }}>
               {resource.tags.map((t) => <span key={t} className="tag">#{t}</span>)}
             </div>
           )}
@@ -567,12 +572,12 @@ function ResourceDetail({ resource, onClose }) {
           <div style={{ height: 1, background: "var(--border)", margin: "0 0 16px" }} />
 
           <SectionLabel>Description</SectionLabel>
-          <p style={{ fontSize: 13, color: resource.description ? "var(--text-secondary)" : "var(--text-muted)", lineHeight: 1.6, marginBottom: 18, fontStyle: resource.description ? "normal" : "italic" }}>
+          <p style={{ fontSize: 13, color: resource.description ? "var(--text-secondary)" : "var(--text-muted)", lineHeight: 1.6, marginBottom: 18, fontStyle: resource.description ? "normal" : "italic", overflowWrap: "break-word", wordBreak: "break-word" }}>
             {resource.description || "No description yet."}
           </p>
 
           <SectionLabel>My Notes</SectionLabel>
-          <p style={{ fontSize: 13, color: resource.notes ? "var(--text-secondary)" : "var(--text-muted)", lineHeight: 1.6, marginBottom: 18, fontStyle: resource.notes ? "normal" : "italic" }}>
+          <p style={{ fontSize: 13, color: resource.notes ? "var(--text-secondary)" : "var(--text-muted)", lineHeight: 1.6, marginBottom: 18, fontStyle: resource.notes ? "normal" : "italic", overflowWrap: "break-word", wordBreak: "break-word" }}>
             {resource.notes || "No notes yet."}
           </p>
 
@@ -950,7 +955,7 @@ function Sidebar({ view, setView, resources, mobileOpen, setMobileOpen, onLogoCl
               className="nav-item"
               style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "6px 10px", borderRadius: 8, background: "transparent", color: "var(--text-secondary)", fontSize: 12.5, border: "1px solid transparent", cursor: "pointer", textAlign: "left" }}
             >
-              <span className="mono" style={{ flex: 1, color: "var(--text-muted)" }}>#{t}</span>
+              <span className="mono" style={{ flex: 1, minWidth: 0, color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>#{t}</span>
               <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{c}</span>
             </button>
           ))}
@@ -1712,7 +1717,7 @@ function CurioApp({ onBackToLanding, theme, setTheme }) {
           {confirm?.type === "delete" && (
             <ConfirmDialog
               title="Delete resource?"
-              body={<>This will permanently remove <strong style={{ color: "var(--text)" }}>&ldquo;{confirm.title}&rdquo;</strong> from Curio. This cannot be undone.</>}
+              body={<>This will permanently remove <strong style={{ color: "var(--text)", overflowWrap: "break-word", wordBreak: "break-word" }}>&ldquo;{confirm.title}&rdquo;</strong> from Curio. This cannot be undone.</>}
               confirmLabel="Delete"
               danger
               onConfirm={() => deleteResource(confirm.id)}
@@ -2676,9 +2681,9 @@ const CSS = `
 .resource-card:hover { border-color: var(--border-hover); transform: translateY(-1px); }
 
 .clamp-1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: break-word; word-break: break-word; }
 
-.tag { font-size: 11px; padding: 3px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+.tag { font-size: 11px; padding: 3px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); font-family: 'JetBrains Mono', monospace; display: inline-block; max-width: 100%; box-sizing: border-box; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .kbd { font-family: monospace; font-size: 11px; padding: 2px 6px; border-radius: 5px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-secondary); display: inline-flex; align-items: center; }
 
